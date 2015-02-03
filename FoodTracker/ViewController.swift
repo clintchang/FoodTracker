@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import CoreData
 
 class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UISearchBarDelegate, UISearchControllerDelegate, UISearchResultsUpdating {
 
@@ -26,9 +27,17 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     var apiSearchForFoods:[(name:String, idValue:String)] = []
     
+    var favoritedUSDAItems:[USDAItem] = []
+    var filteredFavoritedUSDAItems:[USDAItem] = []
+    
     var scopeButtonTitles = ["Recommended", "Search Results", "Saved"]
     
     var jsonResponse:NSDictionary!
+    
+    //create instance of our datacontroller
+    var dataController = DataController()
+    
+    
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -54,6 +63,25 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         self.suggestedSearchFoods = ["apple", "bagel", "banana", "beer", "bread", "candy", "carrots", "cheddar cheese", "chicen breast", "chili with beans", "chocolate chip cookie", "coffee", "cola", "corn", "egg", "garbonzo beans", "graham cracker", "granola bar", "green beans", "ground beef patty", "hot dog", "ice cream", "jelly doughnut", "ketchup", "milk", "mixed nuts", "mustard", "oatmeal", "orange juice", "peanut butter", "pizza", "pork chop", "potato", "potato chips", "pretzels", "raisins", "ranch salad dressing", "red wine", "rice", "salsa", "shrimp", "spaghetti", "spaghetti sauce", "tuna", "white wine", "yellow cake"]
         
+        //this is going to be listening. when an alert happens we'll call usdaItemDidComplete
+        NSNotificationCenter.defaultCenter().addObserver(self, selector: "usdaItemDidComplete:", name: kUSDAItemCompleted, object: nil)
+        
+    }
+    
+    override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
+        if segue.identifier == "toDeailVCSegue" {
+            if sender != nil {
+                var detailVC = segue.destinationViewController as DetailViewController
+                detailVC.usdaItem = sender as? USDAItem
+                
+            }
+            
+        }
+    }
+    
+    //best pratice to have this function
+    deinit {
+        NSNotificationCenter.defaultCenter().removeObserver(self)
     }
 
     override func didReceiveMemoryWarning() {
@@ -67,6 +95,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     func tableView(tableView: UITableView, cellForRowAtIndexPath indexPath: NSIndexPath) -> UITableViewCell {
         
         //this returns what goes into each cell. use our "Cell" from storyboard
+        //this one tells you what to return
         let cell = tableView.dequeueReusableCellWithIdentifier("Cell") as UITableViewCell
         
         var foodName:String
@@ -87,7 +116,13 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             //pull out the name from the tuple
             foodName = apiSearchForFoods[indexPath.row].name
         } else {
-            foodName = ""
+            
+            //if we're searching, then return the filtered favorited item at indexpath
+            if searchController.active {
+                foodName = self.filteredFavoritedUSDAItems[indexPath.row].name
+            } else {
+                foodName = self.favoritedUSDAItems[indexPath.row].name
+            }
         }
         
         cell.textLabel?.text = foodName
@@ -121,8 +156,26 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         } else if selectedScopeButtonIndex == 1 {
             
             
-        } else {
             
+            
+            //if you click on an item, we'll save it to core data
+            let idValue = apiSearchForFoods[indexPath.row].idValue
+            
+            self.performSegueWithIdentifier("toDetailVCSegue", sender: nil)
+            
+            self.dataController.saveUSDAItemForId(idValue, json: self.jsonResponse)
+            
+            
+            
+        } else if selectedScopeButtonIndex == 2 {
+            if self.searchController.active {
+                let usdaItem = filteredFavoritedUSDAItems[indexPath.row]
+                self.performSegueWithIdentifier("toDetailVCSegue", sender: usdaItem)
+                
+            } else {
+                let usdaItem = favoritedUSDAItems[indexPath.row]
+                self.performSegueWithIdentifier("toDetailVCSegue", sender: usdaItem)
+            }
             
         }
         
@@ -130,7 +183,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     
-    
+    //this function is required because it tells the number of rows in a table view
     func tableView(tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         
         let selectedScopeButtonIndex = self.searchController.searchBar.selectedScopeButtonIndex
@@ -145,7 +198,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         } else if selectedScopeButtonIndex == 1 {
             return self.apiSearchForFoods.count
         } else {
-            return 0
+            //if we're currently searching, use the filtered array of items
+            if self.searchController.active {
+                return self.filteredFavoritedUSDAItems.count
+            } else {
+                return favoritedUSDAItems.count
+            }
         }
         
         
@@ -163,10 +221,21 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func filterContentForSearch (searchText: String, scope: Int) {
-        self.filteredSuggestedSearchFoods = self.suggestedSearchFoods.filter({ (food:String) -> Bool in
-            var foodMatch = food.rangeOfString(searchText)
-            return foodMatch != nil
-        })
+        
+        if scope == 0 {
+            self.filteredSuggestedSearchFoods = self.suggestedSearchFoods.filter({ (food:String) -> Bool in
+                var foodMatch = food.rangeOfString(searchText)
+                return foodMatch != nil
+            })
+            
+        } else if scope == 2 {
+            self.filteredFavoritedUSDAItems = self.favoritedUSDAItems.filter({ (item: USDAItem) -> Bool in
+                var stringMatch = item.name.rangeOfString(searchText)
+                return stringMatch != nil
+            })
+        }
+        
+        
     }
     
     
@@ -174,6 +243,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     //when you select different scopes on the search bar, it calls this function
     func searchBar(searchBar: UISearchBar, selectedScopeButtonIndexDidChange selectedScope: Int) {
+        
+        if selectedScope == 2 {
+            //we're going to save every time we click on the 'saved' tab
+            requestFavoritedUSDAItems()
+        }
+        
         self.tableView.reloadData()
     }
     
@@ -256,7 +331,33 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         })
         task.resume()
     }
+    //MARK: Setup CoreData
     
+    
+    //pull the favorited items from core data
+    func requestFavoritedUSDAItems() {
+        
+        let fetchRequest = NSFetchRequest(entityName: "USDAItem")
+        let appDelegate = (UIApplication.sharedApplication().delegate as AppDelegate)
+        let managedObjectContext = appDelegate.managedObjectContext
+        
+        self.favoritedUSDAItems = managedObjectContext?.executeFetchRequest(fetchRequest, error: nil) as [USDAItem]
+        
+    }
+    
+    //MARK: NSNotificationCenter 
+    
+    //handle the notification
+    func usdaItemDidComplete(notification: NSNotification) {
+        
+        println("usdaItemDidComplete in ViewController")
+        requestFavoritedUSDAItems()
+        let selectedScopeButtonIndex = self.searchController.searchBar.selectedScopeButtonIndex
+        if selectedScopeButtonIndex == 2 {
+            self.tableView.reloadData()
+        }
+        
+    }
     
 }
 
