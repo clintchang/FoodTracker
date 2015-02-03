@@ -69,7 +69,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     override func prepareForSegue(segue: UIStoryboardSegue, sender: AnyObject?) {
-        if segue.identifier == "toDeailVCSegue" {
+        if segue.identifier == "toDetailVCSegue" {
             if sender != nil {
                 var detailVC = segue.destinationViewController as DetailViewController
                 detailVC.usdaItem = sender as? USDAItem
@@ -105,16 +105,16 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         if selectedScopeButtonIndex == 0 {
             if self.searchController.active {
                 
-                foodName = filteredSuggestedSearchFoods[indexPath.row]
+                foodName = self.filteredSuggestedSearchFoods[indexPath.row]
                 
             } else {
                 
-                foodName = suggestedSearchFoods[indexPath.row]
+                foodName = self.suggestedSearchFoods[indexPath.row]
             }
             
         } else if selectedScopeButtonIndex == 1 {
             //pull out the name from the tuple
-            foodName = apiSearchForFoods[indexPath.row].name
+            foodName = self.apiSearchForFoods[indexPath.row].name
         } else {
             
             //if we're searching, then return the filtered favorited item at indexpath
