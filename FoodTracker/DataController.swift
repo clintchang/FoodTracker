@@ -22,6 +22,7 @@ class DataController {
         
         if json["hits"] != nil {
             
+            println("hello data controller")
             let results:[AnyObject] = json ["hits"]! as [AnyObject]
             
             for itemDictionary in results {
@@ -46,6 +47,8 @@ class DataController {
     //this is an instance function and not a class function
     func saveUSDAItemForId(idValue: String, json: NSDictionary ){
         
+        
+        println("save USDA Item for ID")
         //going to search in the json dictionary
         if json["hits"] != nil {
             
@@ -91,12 +94,14 @@ class DataController {
                         
                         //access the fields dictionary
                         if itemDictionary["fields"] != nil {
+//                            println ("inside itemdictionary")
                             let fieldsDictionary = itemDictionary["fields"]! as NSDictionary
                             if fieldsDictionary["item_name"] != nil {
                                 usdaItem.name = fieldsDictionary["item_name"]! as String
+                                
                             }
                             
-                            if fieldsDictionary["usda_fileds"] != nil {
+                            if fieldsDictionary["usda_fields"] != nil {
                                 let usdaFieldsDictionary = fieldsDictionary["usda_fields"]! as NSDictionary
                                 
                                 //Calcium
@@ -126,7 +131,7 @@ class DataController {
                                 
                                 //Fat
                                 if usdaFieldsDictionary["FAT"] != nil {
-                                    let fatTotalDictionary = usdaFieldsDictionary["Fat"]! as NSDictionary
+                                    let fatTotalDictionary = usdaFieldsDictionary["FAT"]! as NSDictionary
                                     if fatTotalDictionary["value"] != nil {
                                         let fatTotalValue:AnyObject = fatTotalDictionary["value"]!
                                         usdaItem.fatTotal = "\(fatTotalValue)"
@@ -173,6 +178,7 @@ class DataController {
                                 
                                 // Vitamin C
                                 if usdaFieldsDictionary["VITC"] != nil {
+//                                    println("Vitamin C")
                                     let vitaminCDictionary = usdaFieldsDictionary["VITC"]! as NSDictionary
                                     if vitaminCDictionary["value"] != nil {
                                         let vitaminCValue: AnyObject = vitaminCDictionary["value"]!
@@ -185,6 +191,7 @@ class DataController {
                                 
                                 // Energy
                                 if usdaFieldsDictionary["ENERC_KCAL"] != nil {
+//                                    println("Energy")
                                     let energyDictionary = usdaFieldsDictionary["ENERC_KCAL"]! as NSDictionary
                                     if energyDictionary["value"] != nil {
                                         let energyValue: AnyObject = energyDictionary["value"]!
@@ -195,8 +202,11 @@ class DataController {
                                     usdaItem.energy = "0"
                                 }
                                 
-                                //**************SAVE YOUR DATA!!!!**********************
+                                //SAVE YOUR DATA
+                                
                                 (UIApplication.sharedApplication().delegate as AppDelegate).saveContext()
+                                
+//                                println("saving")
                                 
                                 //going to create a radio station to send notifications to different controllers
                                 NSNotificationCenter.defaultCenter().postNotificationName(kUSDAItemCompleted, object: usdaItem)
